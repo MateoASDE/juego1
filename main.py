@@ -19,12 +19,14 @@ tiempos_golpe = [None] * len(cubos)
 # Contador para la animación
 contador = 0
 mode =  "game"
+camera_x = 0
 velocidad_y = 0
 en_suelo = True
 salto_presionado = False
 posicion_suelo = ma.y
 duracion_golpe = 0.25
 altura_golpe = 12
+posicion_camara = WIDTH / 2
 
 def draw():
     if mode == "game":
@@ -39,7 +41,7 @@ def draw():
 
 
 def update(dt):
-    global contador, mode, velocidad_y, en_suelo, salto_presionado
+    global contador, mode, camera_x, velocidad_y, en_suelo, salto_presionado
 
 
     if coopa.x <=0:
@@ -50,6 +52,19 @@ def update(dt):
 
     if keyboard.right:
         ma.x += 3
+        limite_camara = background.width - WIDTH
+        if ma.x > posicion_camara and camera_x < limite_camara:
+            desplazamiento = min(ma.x - posicion_camara, limite_camara - camera_x)
+            ma.x -= desplazamiento
+            camera_x += desplazamiento
+            background.x -= desplazamiento
+            coopa.x -= desplazamiento
+            for cubo in cubos:
+                cubo.x -= desplazamiento
+
+        if camera_x >= limite_camara:
+            ma.x = min(ma.x, WIDTH - ma.width / 2)
+
 
         contador += 1
 
@@ -62,6 +77,17 @@ def update(dt):
                 ma.image = "marc1"
     elif keyboard.left:
         ma.x -= 3
+        if ma.x < posicion_camara and camera_x > 0:
+            desplazamiento = min(posicion_camara - ma.x, camera_x)
+            ma.x += desplazamiento
+            camera_x -= desplazamiento
+            background.x += desplazamiento
+            coopa.x += desplazamiento
+            for cubo in cubos:
+                cubo.x += desplazamiento
+
+        if camera_x <= 0:
+            ma.x = max(ma.x, ma.width / 2)
         contador += 1
 
         if contador >= 5:
