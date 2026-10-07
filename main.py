@@ -7,22 +7,30 @@ background = Actor("mundomario1")
 ma = Actor("ma", (50, 195))
 coopa = Actor("ko", (400,200))
 cubo1 = Actor("cu1", (264,152))
-
-
+cubo2 = Actor("cu2", (345,152))
+cubo3 = Actor("cu3", (376,152))
+cubo4 = Actor("cu4", (360,88))
 
 # Contador para la animación
 contador = 0
-
+mode =  "game"
 
 def draw():
-    background.draw()
-    ma.draw()
-    coopa.draw()
-    cubo1.draw()
+    if mode == "game":
+        background.draw()
+        ma.draw()
+        coopa.draw()
+        cubo1.draw()
+        cubo2.draw()
+        cubo3.draw()
+        cubo4.draw()
+    elif mode == "end":
+        screen.fill("black")
+        screen.draw.text("game over",pos=(100,100),color="white",fontsize=24)
 
 
 def update(dt):
-    global contador
+    global contador,mode
 
 
     if coopa.x <=0:
@@ -59,3 +67,6 @@ def update(dt):
         # Cuando no se mueve, vuelve al sprite quieto
         ma.image = "ma"
         contador = 0
+
+    if ma.colliderect(coopa):
+        mode = "end"
