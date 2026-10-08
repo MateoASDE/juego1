@@ -6,6 +6,8 @@ HEIGHT = 240
 FPS = 30
 
 background = Actor("mundomario1")
+moneda= Actor("mon1", (264,130))
+coap= Actor("cop", (400, 200))
 ma = Actor("ma", (50, 195))
 coopa = Actor("ko", (400,200))
 cubo1 = Actor("cu1", (264,152))
@@ -31,6 +33,8 @@ posicion_camara = WIDTH / 2
 def draw():
     if mode == "game":
         background.draw()
+        moneda.draw()
+        coap.draw()
         ma.draw()
         coopa.draw()
         for cubo in cubos:
