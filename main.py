@@ -9,6 +9,10 @@ background = Actor("mundomario1")
 coap= Actor("cop", (400, 200))
 ma = Actor("ma", (50, 195))
 coopa = Actor("ko", (400,200))
+ko_derrotado = False
+tiempo_ko_derrotado = 0
+duracion_ko_derrotado = 0.5
+espera_reaparicion_ko = 0.5
 cubo1 = Actor("cu1", (264,152))
 cubo2 = Actor("cu2", (345,152))
 cubo3 = Actor("cu3", (376,152))
@@ -39,9 +43,9 @@ def draw():
         background.draw()
         hongo.draw()
         moneda.draw()
-        coap.draw()
         ma.draw()
-        coopa.draw()
+        if not ko_derrotado or tiempo_ko_derrotado < duracion_ko_derrotado:
+            coopa.draw()
         moneda1.draw()
         for cubo in cubos:
             cubo.draw()
@@ -52,9 +56,17 @@ def draw():
 
 def update(dt):
     global contador, mode, camera_x, velocidad_y, en_suelo, salto_presionado
+    global ko_derrotado, tiempo_ko_derrotado
 
 
-    if coopa.x <=0:
+    if ko_derrotado:
+        tiempo_ko_derrotado += dt
+        if tiempo_ko_derrotado >= duracion_ko_derrotado + espera_reaparicion_ko:
+            coopa.pos = (400, 200)
+            coopa.image = "ko"
+            ko_derrotado = False
+            tiempo_ko_derrotado = 0
+    elif coopa.x <=0:
         coopa.x =400
     else:
         coopa.x -=1
@@ -136,9 +148,24 @@ def update(dt):
                 )
 
     parte_superior_anterior = ma.top
+    parte_inferior_anterior = ma.bottom
     if not en_suelo:
         velocidad_y += 1100 * dt
         ma.y += velocidad_y * dt
+
+        if (
+            not ko_derrotado
+            and velocidad_y > 0
+            and ma.left < coopa.right
+            and ma.right > coopa.left
+            and parte_inferior_anterior <= coopa.top
+            and ma.bottom >= coopa.top
+        ):
+            ma.bottom = coopa.top
+            coopa.image = "cop"
+            ko_derrotado = True
+            tiempo_ko_derrotado = 0
+            velocidad_y = -250
 
         for indice, cubo in enumerate(cubos):
             if (
@@ -158,5 +185,5 @@ def update(dt):
             velocidad_y = 0
             en_suelo = True
 
-    if ma.colliderect(coopa):
+    if not ko_derrotado and ma.colliderect(coopa):
         mode = "end"
