@@ -53,6 +53,7 @@ coopa = Actor("ko", (400,200))
 ko_derrotado = False
 tiempo_ko_derrotado = 0
 duracion_ko_derrotado = 0.5
+ladrillo = Actor("ladrillo", (100,152))
 cubo1 = Actor("cu1", (264,152))
 cubo2 = Actor("cu2", (345,152))
 cubo3 = Actor("cu3", (376,152))
@@ -60,6 +61,7 @@ cubo4 = Actor("cu4", (360,88))
 cubos = [cubo1, cubo2, cubo3, cubo4]
 posiciones_originales = [cubo.y for cubo in cubos]
 tiempos_golpe = [None] * len(cubos)
+ladrillo= Actor("ladrillo")
 hongo= Actor("hongo")
 hongo.pos = cubo2.pos
 moneda= Actor("mon1")
@@ -121,6 +123,7 @@ def choca_lateral(x_anterior, direccion):
 
 def draw():
     if mode == "game":
+        ladrillo.draw()
         background.draw()
         hongo.draw()
         moneda.draw()
