@@ -6,7 +6,6 @@ HEIGHT = 240
 FPS = 30
 
 background = Actor("mundomario1")
-moneda= Actor("mon1", (264,130))
 coap= Actor("cop", (400, 200))
 ma = Actor("ma", (50, 195))
 coopa = Actor("ko", (400,200))
@@ -17,7 +16,12 @@ cubo4 = Actor("cu4", (360,88))
 cubos = [cubo1, cubo2, cubo3, cubo4]
 posiciones_originales = [cubo.y for cubo in cubos]
 tiempos_golpe = [None] * len(cubos)
-
+hongo= Actor("hongo")
+hongo.pos = cubo2.pos
+moneda= Actor("mon1")
+moneda.pos = cubo1.pos
+moneda1 = Actor("mon1")
+moneda1.pos = cubo3.pos
 # Contador para la animación
 contador = 0
 mode =  "game"
@@ -33,10 +37,12 @@ posicion_camara = WIDTH / 2
 def draw():
     if mode == "game":
         background.draw()
+        hongo.draw()
         moneda.draw()
         coap.draw()
         ma.draw()
         coopa.draw()
+        moneda1.draw()
         for cubo in cubos:
             cubo.draw()
     elif mode == "end":
@@ -63,6 +69,9 @@ def update(dt):
             camera_x += desplazamiento
             background.x -= desplazamiento
             coopa.x -= desplazamiento
+            hongo.x -= desplazamiento
+            moneda1.x -= desplazamiento
+            moneda.x -= desplazamiento
             for cubo in cubos:
                 cubo.x -= desplazamiento
 
@@ -87,6 +96,9 @@ def update(dt):
             camera_x -= desplazamiento
             background.x += desplazamiento
             coopa.x += desplazamiento
+            hongo.x += desplazamiento
+            moneda1.x += desplazamiento
+            moneda.x += desplazamiento
             for cubo in cubos:
                 cubo.x += desplazamiento
 
