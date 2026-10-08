@@ -12,7 +12,6 @@ coopa = Actor("ko", (400,200))
 ko_derrotado = False
 tiempo_ko_derrotado = 0
 duracion_ko_derrotado = 0.5
-espera_reaparicion_ko = 0.5
 cubo1 = Actor("cu1", (264,152))
 cubo2 = Actor("cu2", (345,152))
 cubo3 = Actor("cu3", (376,152))
@@ -57,15 +56,10 @@ def draw():
 def update(dt):
     global contador, mode, camera_x, velocidad_y, en_suelo, salto_presionado
     global ko_derrotado, tiempo_ko_derrotado
-
+    #sounds.mario.play()
 
     if ko_derrotado:
         tiempo_ko_derrotado += dt
-        if tiempo_ko_derrotado >= duracion_ko_derrotado + espera_reaparicion_ko:
-            coopa.pos = (400, 200)
-            coopa.image = "ko"
-            ko_derrotado = False
-            tiempo_ko_derrotado = 0
     elif coopa.x <=0:
         coopa.x =400
     else:
