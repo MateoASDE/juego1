@@ -8,6 +8,7 @@ from pgzero import loaders
 WIDTH = 400
 HEIGHT = 240
 FPS = 30
+BANDERA_X = 3175
 
 carpeta_proyecto = Path(__file__).resolve().parent
 if not (carpeta_proyecto / "images").is_dir():
@@ -136,6 +137,7 @@ time = 400
 tiempo_transcurrido = 0
 contador = 0
 mode =  "game"
+tiempo_final_bandera = 0
 coins = 0
 score = 100
 camera_x = 0
@@ -343,7 +345,7 @@ def coopa_choca_solido(coopa, x_siguiente, direccion):
 
 
 def draw():
-    if mode == "game":
+    if mode in ("game", "flag"):
         background.draw()
         for izquierda, arriba in ladrillos_rotos:
             screen.draw.filled_rect(
@@ -383,6 +385,9 @@ def draw():
         for indice, moneda_actual in enumerate(monedas):
             if monedas_activas[indice]:
                 moneda_actual.draw()
+    elif mode == "win":
+        screen.fill("black")
+        screen.draw.text("end", pos=(160, 100), color="white", fontsize=32)
     elif mode == "end":
         screen.fill("black")
         screen.draw.text("game over",pos=(100,100),color="white",fontsize=24)
@@ -394,7 +399,19 @@ def update(dt):
     global hongo_visible, tiempo_salida_hongo
     global mario_grande
     global velocidad_hongo_x, velocidad_hongo_y
+    global tiempo_final_bandera
     #sounds.mario.play()
+
+    if mode == "flag":
+        ma.y = min(
+            posicion_suelo - (alto_mario() - ma.height) / 2,
+            ma.y + 100 * dt,
+        )
+        if ma.y >= posicion_suelo - (alto_mario() - ma.height) / 2:
+            tiempo_final_bandera += dt
+            if tiempo_final_bandera >= 0.5:
+                mode = "win"
+        return
 
     if mode == "game" and time > 0:
         tiempo_transcurrido += dt
@@ -686,3 +703,13 @@ def update(dt):
         for indice, coopa in enumerate(coopas)
     ):
         mode = "end"
+        return
+
+    if camera_x + derecha_mario() >= BANDERA_X:
+        ma.x = BANDERA_X - camera_x
+        ma.y = min(ma.y, 150)
+        ma.image = "mariop"
+        en_suelo = False
+        velocidad_y = 0
+        tiempo_final_bandera = 0
+        mode = "flag"
