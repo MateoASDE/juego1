@@ -69,8 +69,11 @@ moneda.pos = cubo1.pos
 moneda1 = Actor("mon1")
 moneda1.pos = cubo3.pos
 # Contador para la animación
+time = 400
 contador = 0
 mode =  "game"
+coins = 0
+score = 100
 camera_x = 0
 velocidad_y = 0
 en_suelo = True
@@ -79,7 +82,7 @@ posicion_suelo = ma.y
 duracion_golpe = 0.25
 altura_golpe = 12
 posicion_camara = WIDTH / 2
-
+lives = 3
 
 def pixel_solido(x, y):
     x_fondo = round(x - background.left)
@@ -128,6 +131,16 @@ def draw():
         hongo.draw()
         moneda.draw()
         ma.draw()
+        screen.draw.text("score",pos=(10,0),color="white",fontsize=24)
+        screen.draw.text("coins",pos=(70,0),color="white",fontsize=24)
+        screen.draw.text("world",pos=(130,0),color="white",fontsize=24)
+        screen.draw.text("time",pos=(190,0),color="white",fontsize=24)
+        screen.draw.text("lives",pos=(240,0),color="white",fontsize=24)
+        screen.draw.text(str(score),pos=(20,20),color="white",fontsize=20)
+        screen.draw.text(str(coins),pos=(90,20),color="white",fontsize=20)
+        screen.draw.text("1:1",pos=(140,20),color="white",fontsize=20)
+        screen.draw.text(str(time),pos=(200,20),color="white",fontsize=20)
+        screen.draw.text(str(lives),pos=(250,20),color="white",fontsize=20)
         if not ko_derrotado or tiempo_ko_derrotado < duracion_ko_derrotado:
             coopa.draw()
         moneda1.draw()
