@@ -59,17 +59,26 @@ cubo2 = Actor("cu2", (345,152))
 cubo3 = Actor("cu3", (376,152))
 cubo4 = Actor("cu4", (360,88))
 cubos = [cubo1, cubo2, cubo3, cubo4]
+cubos.extend(
+    Actor("cu1", posicion)
+    for posicion in (
+        (1256, 152),
+        (1512, 88),
+        (1704, 152),
+        (1752, 88),
+        (1752, 152),
+        (1800, 152),
+        (2072, 88),
+        (2088, 88),
+        (2728, 152),
+    )
+)
 posiciones_originales = [cubo.y for cubo in cubos]
 tiempos_golpe = [None] * len(cubos)
 ladrillo= Actor("ladrillo")
 hongo= Actor("hongo")
 hongo.pos = cubo2.pos
-moneda= Actor("mon1")
-moneda.pos = cubo1.pos
-moneda1 = Actor("mon1")
-moneda1.pos = cubo3.pos
-monedas = [moneda, moneda1]
-cubos_con_moneda = [cubo1, cubo3]
+monedas = [Actor("mon1", cubo.pos) for cubo in cubos]
 monedas_activas = [False] * len(monedas)
 monedas_reclamadas = [False] * len(monedas)
 tiempos_salida_monedas = [None] * len(monedas)
@@ -263,14 +272,15 @@ def update(dt):
             progreso = min(
                 tiempos_salida_monedas[indice] / duracion_salida_moneda, 1
             )
-            cubo = cubos_con_moneda[indice]
             y_final = (
-                posiciones_originales[cubos.index(cubo)]
-                - cubo.height / 2
+                posiciones_originales[indice]
+                - cubos[indice].height / 2
                 - moneda_actual.height / 2
                 - 2
             )
-            moneda_actual.y = cubo.y + (y_final - cubo.y) * sin(pi * progreso / 2)
+            moneda_actual.y = cubos[indice].y + (
+                y_final - cubos[indice].y
+            ) * sin(pi * progreso / 2)
             if progreso >= 1:
                 tiempos_salida_monedas[indice] = None
 
@@ -318,12 +328,10 @@ def update(dt):
                 ma.top = cubo.bottom
                 velocidad_y = 0
                 tiempos_golpe[indice] = 0
-                if cubo in cubos_con_moneda:
-                    indice_moneda = cubos_con_moneda.index(cubo)
-                    if not monedas_reclamadas[indice_moneda]:
-                        monedas_activas[indice_moneda] = True
-                        tiempos_salida_monedas[indice_moneda] = 0
-                        monedas[indice_moneda].pos = cubo.pos
+                if not monedas_reclamadas[indice]:
+                    monedas_activas[indice] = True
+                    tiempos_salida_monedas[indice] = 0
+                    monedas[indice].pos = cubo.pos
                 break
 
         if velocidad_y < 0:
