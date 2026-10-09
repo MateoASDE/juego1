@@ -85,6 +85,7 @@ tiempos_salida_monedas = [None] * len(monedas)
 duracion_salida_moneda = 0.3
 # Contador para la animación
 time = 400
+tiempo_transcurrido = 0
 contador = 0
 mode =  "game"
 coins = 0
@@ -169,8 +170,15 @@ def draw():
 
 def update(dt):
     global contador, mode, camera_x, velocidad_y, en_suelo, salto_presionado, coins
+    global time, tiempo_transcurrido
     global ko_derrotado, tiempo_ko_derrotado
     #sounds.mario.play()
+
+    if mode == "game" and time > 0:
+        tiempo_transcurrido += dt
+        while tiempo_transcurrido >= 1:
+            time -= 1
+            tiempo_transcurrido -= 1
 
     if ko_derrotado:
         tiempo_ko_derrotado += dt
