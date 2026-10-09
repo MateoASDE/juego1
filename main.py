@@ -1,5 +1,5 @@
 # pgzero
-from math import pi, sin
+from math import ceil, pi, sin
 from pathlib import Path
 
 import pygame
@@ -49,10 +49,13 @@ def buscar_tubos():
 tubos = buscar_tubos()
 coap= Actor("cop", (400, 200))
 ma = Actor("ma", (50, 195))
-coopa = Actor("ko", (400,200))
-direccion_coopa = -1
-ko_derrotado = False
-tiempo_ko_derrotado = 0
+coopas = [
+    Actor("ko", (x, 200))
+    for x in (400, 800, 1200, 1600, 2000, 2400, 2800, 3200)
+]
+direcciones_coopa = [-1] * len(coopas)
+koopas_derrotadas = [False] * len(coopas)
+tiempos_ko_derrotado = [0] * len(coopas)
 duracion_ko_derrotado = 0.5
 cubo1 = Actor("cu1", (264,152))
 cubo2 = Actor("cu2", (345,152))
@@ -117,8 +120,12 @@ fragmentos_ladrillo = []
 duracion_fragmentos_ladrillo = 0.8
 posiciones_originales = [cubo.y for cubo in cubos]
 tiempos_golpe = [None] * len(cubos)
-hongo= Actor("hongo")
-hongo.pos = cubo2.pos
+indice_bloque_hongo = 1
+hongo = Actor("hongo", cubos[indice_bloque_hongo].pos)
+hongo_visible = False
+tiempo_salida_hongo = None
+velocidad_hongo_x = 45
+velocidad_hongo_y = 0
 monedas = [Actor("mon1", cubo.pos) for cubo in cubos]
 monedas_activas = [False] * len(monedas)
 bloques_usados = [False] * len(cubos)
@@ -140,6 +147,57 @@ duracion_golpe = 0.25
 altura_golpe = 12
 posicion_camara = WIDTH / 2
 lives = 3
+mario_grande = False
+sprites_mario_grande = {}
+
+
+def ancho_mario():
+    return ma.width * (4 / 3 if mario_grande else 1)
+
+
+def alto_mario():
+    return ma.height * (4 / 3 if mario_grande else 1)
+
+
+def izquierda_mario():
+    return ma.x - ancho_mario() / 2
+
+
+def derecha_mario():
+    return ma.x + ancho_mario() / 2
+
+
+def arriba_mario():
+    return ma.y - alto_mario() / 2
+
+
+def abajo_mario():
+    return ma.y + alto_mario() / 2
+
+
+def mario_choca(actor):
+    return (
+        izquierda_mario() < actor.right
+        and derecha_mario() > actor.left
+        and arriba_mario() < actor.bottom
+        and abajo_mario() > actor.top
+    )
+
+
+def dibujar_mario():
+    if not mario_grande:
+        ma.draw()
+        return
+
+    if ma.image not in sprites_mario_grande:
+        imagen = pygame.image.load(
+            str(carpeta_proyecto / "images" / f"{ma.image}.png")
+        )
+        sprites_mario_grande[ma.image] = pygame.transform.scale(
+            imagen, (round(ancho_mario()), round(alto_mario()))
+        )
+    sprite = sprites_mario_grande[ma.image]
+    screen.surface.blit(sprite, sprite.get_rect(center=ma.pos))
 
 def pixel_solido(x, y):
     x_fondo = round(x - background.left)
@@ -171,24 +229,94 @@ def pixel_solido(x, y):
     )
 
 
+def hongo_choca_objeto(x, y):
+    izquierda = x - hongo.width / 2
+    derecha = x + hongo.width / 2
+    arriba = y - hongo.height / 2
+    abajo = y + hongo.height / 2
+    return any(
+        izquierda < objeto.right
+        and derecha > objeto.left
+        and arriba < objeto.bottom
+        and abajo > objeto.top
+        for objeto in (*cubos, *ladrillos)
+    )
+
+
+def mover_hongo(dt):
+    global velocidad_hongo_x, velocidad_hongo_y
+
+    desplazamiento_x = velocidad_hongo_x * dt
+    pasos_x = max(1, ceil(abs(desplazamiento_x)))
+    for _ in range(pasos_x):
+        x_siguiente = hongo.x + desplazamiento_x / pasos_x
+        borde_mundo_izquierdo = camera_x + x_siguiente - hongo.width / 2
+        borde_mundo_derecho = camera_x + x_siguiente + hongo.width / 2
+        borde_x = x_siguiente + (
+            hongo.width / 2 if velocidad_hongo_x > 0 else -hongo.width / 2
+        )
+        colision_lateral = any(
+            pixel_solido(borde_x, y)
+            for y in range(int(hongo.top) + 1, int(hongo.bottom) - 1)
+        ) or hongo_choca_objeto(x_siguiente, hongo.y)
+
+        if (
+            borde_mundo_izquierdo < 0
+            or borde_mundo_derecho > background.width
+            or colision_lateral
+        ):
+            velocidad_hongo_x *= -1
+            break
+        hongo.x = x_siguiente
+
+    y_anterior = hongo.y
+    abajo_anterior = y_anterior + hongo.height / 2
+    velocidad_hongo_y += 900 * dt
+    y_siguiente = y_anterior + velocidad_hongo_y * dt
+    abajo_siguiente = y_siguiente + hongo.height / 2
+    izquierda = int(hongo.left) + 1
+    derecha = int(hongo.right) - 1
+
+    for y in range(int(abajo_anterior) + 1, int(abajo_siguiente) + 1):
+        colision_suelo = any(pixel_solido(x, y) for x in range(izquierda, derecha))
+        colision_bloque = any(
+            izquierda < objeto.right
+            and derecha > objeto.left
+            and abajo_anterior <= objeto.top <= abajo_siguiente
+            for objeto in (*cubos, *ladrillos)
+        )
+        if colision_suelo or colision_bloque:
+            hongo.bottom = y if colision_suelo else min(
+                objeto.top
+                for objeto in (*cubos, *ladrillos)
+                if izquierda < objeto.right
+                and derecha > objeto.left
+                and abajo_anterior <= objeto.top <= abajo_siguiente
+            )
+            velocidad_hongo_y = 0
+            break
+    else:
+        hongo.y = y_siguiente
+
+
 def choca_lateral(x_anterior, direccion):
     if direccion > 0:
-        borde_anterior = x_anterior + ma.width / 2
-        borde_actual = ma.right
+        borde_anterior = x_anterior + ancho_mario() / 2
+        borde_actual = derecha_mario()
     else:
-        borde_anterior = x_anterior - ma.width / 2
-        borde_actual = ma.left
+        borde_anterior = x_anterior - ancho_mario() / 2
+        borde_actual = izquierda_mario()
 
     inicio = min(int(borde_anterior), int(borde_actual))
     fin = max(int(borde_anterior), int(borde_actual))
     for x in range(inicio, fin + 1):
-        for y in range(int(ma.top) + 2, int(ma.bottom) - 2):
+        for y in range(int(arriba_mario()) + 2, int(abajo_mario()) - 2):
             if pixel_solido(x, y):
                 return True
     return False
 
 
-def coopa_choca_solido(x_siguiente, direccion):
+def coopa_choca_solido(coopa, x_siguiente, direccion):
     borde_actual = coopa.right if direccion > 0 else coopa.left
     borde_siguiente = (
         x_siguiente + coopa.width / 2
@@ -231,8 +359,9 @@ def draw():
             screen.surface.blit(sprite, (round(x), round(y)))
         for ladrillo in ladrillos:
             ladrillo.draw()
-        hongo.draw()
-        ma.draw()
+        if hongo_visible:
+            hongo.draw()
+        dibujar_mario()
         screen.draw.text("score",pos=(10,0),color="white",fontsize=24)
         screen.draw.text("coins",pos=(70,0),color="white",fontsize=24)
         screen.draw.text("world",pos=(130,0),color="white",fontsize=24)
@@ -243,8 +372,12 @@ def draw():
         screen.draw.text("1:1",pos=(140,20),color="white",fontsize=20)
         screen.draw.text(str(time),pos=(200,20),color="white",fontsize=20)
         screen.draw.text(str(lives),pos=(250,20),color="white",fontsize=20)
-        if not ko_derrotado or tiempo_ko_derrotado < duracion_ko_derrotado:
-            coopa.draw()
+        for indice, coopa in enumerate(coopas):
+            if (
+                not koopas_derrotadas[indice]
+                or tiempos_ko_derrotado[indice] < duracion_ko_derrotado
+            ):
+                coopa.draw()
         for cubo in cubos:
             cubo.draw()
         for indice, moneda_actual in enumerate(monedas):
@@ -258,7 +391,9 @@ def draw():
 def update(dt):
     global contador, mode, camera_x, velocidad_y, en_suelo, salto_presionado, coins
     global time, tiempo_transcurrido
-    global direccion_coopa, ko_derrotado, tiempo_ko_derrotado
+    global hongo_visible, tiempo_salida_hongo
+    global mario_grande
+    global velocidad_hongo_x, velocidad_hongo_y
     #sounds.mario.play()
 
     if mode == "game" and time > 0:
@@ -278,18 +413,21 @@ def update(dt):
         if fragmento[4] < duracion_fragmentos_ladrillo
     ]
 
-    if ko_derrotado:
-        tiempo_ko_derrotado += dt
-    else:
-        x_siguiente = coopa.x + direccion_coopa * 30 * dt
+    for indice, coopa in enumerate(coopas):
+        if koopas_derrotadas[indice]:
+            tiempos_ko_derrotado[indice] += dt
+            continue
+
+        direccion = direcciones_coopa[indice]
+        x_siguiente = coopa.x + direccion * 30 * dt
         borde_mundo_izquierdo = camera_x + x_siguiente - coopa.width / 2
         borde_mundo_derecho = camera_x + x_siguiente + coopa.width / 2
         if (
             borde_mundo_izquierdo < 0
             or borde_mundo_derecho > background.width
-            or coopa_choca_solido(x_siguiente, direccion_coopa)
+            or coopa_choca_solido(coopa, x_siguiente, direccion)
         ):
-            direccion_coopa *= -1
+            direcciones_coopa[indice] *= -1
         else:
             coopa.x = x_siguiente
 
@@ -305,7 +443,8 @@ def update(dt):
             ma.x -= desplazamiento
             camera_x += desplazamiento
             background.x -= desplazamiento
-            coopa.x -= desplazamiento
+            for coopa in coopas:
+                coopa.x -= desplazamiento
             hongo.x -= desplazamiento
             for moneda_actual in monedas:
                 moneda_actual.x -= desplazamiento
@@ -317,7 +456,7 @@ def update(dt):
                 fragmento[0] -= desplazamiento
 
         if camera_x >= limite_camara:
-            ma.x = min(ma.x, WIDTH - ma.width / 2)
+            ma.x = min(ma.x, WIDTH - ancho_mario() / 2)
 
 
         contador += 1
@@ -339,7 +478,8 @@ def update(dt):
             ma.x += desplazamiento
             camera_x -= desplazamiento
             background.x += desplazamiento
-            coopa.x += desplazamiento
+            for coopa in coopas:
+                coopa.x += desplazamiento
             hongo.x += desplazamiento
             for moneda_actual in monedas:
                 moneda_actual.x += desplazamiento
@@ -351,7 +491,7 @@ def update(dt):
                 fragmento[0] += desplazamiento
 
         if camera_x <= 0:
-            ma.x = max(ma.x, ma.width / 2)
+            ma.x = max(ma.x, ancho_mario() / 2)
         contador += 1
 
         if contador >= 5:
@@ -368,7 +508,8 @@ def update(dt):
         contador = 0
 
     if en_suelo and ma.y < posicion_suelo and not any(
-        pixel_solido(x, ma.bottom) for x in (ma.left + 2, ma.centerx, ma.right - 2)
+        pixel_solido(x, abajo_mario())
+        for x in (izquierda_mario() + 2, ma.x, derecha_mario() - 2)
     ):
         en_suelo = False
 
@@ -388,6 +529,25 @@ def update(dt):
                     pi * tiempos_golpe[indice] / duracion_golpe
                 )
 
+    if tiempo_salida_hongo is not None:
+        tiempo_salida_hongo += dt
+        progreso = min(tiempo_salida_hongo / duracion_salida_moneda, 1)
+        cubo_hongo = cubos[indice_bloque_hongo]
+        y_final = (
+            cubo_hongo.y
+            - cubo_hongo.height / 2
+            - hongo.height / 2
+            - 2
+        )
+        hongo.y = cubo_hongo.y + (y_final - cubo_hongo.y) * sin(pi * progreso / 2)
+        if progreso >= 1:
+            tiempo_salida_hongo = None
+
+    if hongo_visible and tiempo_salida_hongo is None:
+        mover_hongo(dt)
+        if hongo.top >= HEIGHT:
+            hongo_visible = False
+
     for indice, moneda_actual in enumerate(monedas):
         if tiempos_salida_monedas[indice] is not None:
             tiempos_salida_monedas[indice] += dt
@@ -406,34 +566,50 @@ def update(dt):
             if progreso >= 1:
                 tiempos_salida_monedas[indice] = None
 
-        if monedas_activas[indice] and ma.colliderect(moneda_actual):
+        if monedas_activas[indice] and mario_choca(moneda_actual):
             monedas_activas[indice] = False
             coins += 1
 
-    parte_superior_anterior = ma.top
-    parte_inferior_anterior = ma.bottom
+    if (
+        hongo_visible
+        and tiempo_salida_hongo is None
+        and not mario_grande
+        and mario_choca(hongo)
+    ):
+        altura_anterior = alto_mario()
+        mario_grande = True
+        ma.y -= (alto_mario() - altura_anterior) / 2
+        hongo_visible = False
+
+    parte_superior_anterior = arriba_mario()
+    parte_inferior_anterior = abajo_mario()
     if not en_suelo:
         velocidad_y += 1100 * dt
         ma.y += velocidad_y * dt
 
-        if (
-            not ko_derrotado
-            and velocidad_y > 0
-            and ma.left < coopa.right
-            and ma.right > coopa.left
-            and parte_inferior_anterior <= coopa.top
-            and ma.bottom >= coopa.top
-        ):
-            ma.bottom = coopa.top
-            coopa.image = "cop"
-            ko_derrotado = True
-            tiempo_ko_derrotado = 0
-            velocidad_y = -250
+        if velocidad_y > 0:
+            for indice, coopa in enumerate(coopas):
+                if (
+                    not koopas_derrotadas[indice]
+                    and izquierda_mario() < coopa.right
+                    and derecha_mario() > coopa.left
+                    and parte_inferior_anterior <= coopa.top
+                    and abajo_mario() >= coopa.top
+                ):
+                    ma.y = coopa.top - alto_mario() / 2
+                    coopa.image = "cop"
+                    koopas_derrotadas[indice] = True
+                    tiempos_ko_derrotado[indice] = 0
+                    velocidad_y = -250
+                    break
 
         if velocidad_y > 0:
-            for y in range(int(parte_inferior_anterior) + 1, int(ma.bottom) + 1):
-                if any(pixel_solido(x, y) for x in range(int(ma.left), int(ma.right))):
-                    ma.bottom = y
+            for y in range(int(parte_inferior_anterior) + 1, int(abajo_mario()) + 1):
+                if any(
+                    pixel_solido(x, y)
+                    for x in range(int(izquierda_mario()), int(derecha_mario()))
+                ):
+                    ma.y = y - alto_mario() / 2
                     velocidad_y = 0
                     en_suelo = True
                     break
@@ -441,31 +617,38 @@ def update(dt):
         for indice, cubo in enumerate(cubos):
             if (
                 velocidad_y < 0
-                and ma.left < cubo.right
-                and ma.right > cubo.left
+                and izquierda_mario() < cubo.right
+                and derecha_mario() > cubo.left
                 and parte_superior_anterior >= cubo.bottom
-                and ma.top <= cubo.bottom
+                and arriba_mario() <= cubo.bottom
             ):
-                ma.top = cubo.bottom
+                ma.y = cubo.bottom + alto_mario() / 2
                 velocidad_y = 0
                 if not bloques_usados[indice]:
                     bloques_usados[indice] = True
                     cubo.image = "cu_usado"
                     tiempos_golpe[indice] = 0
-                    monedas_activas[indice] = True
-                    tiempos_salida_monedas[indice] = 0
-                    monedas[indice].pos = cubo.pos
+                    if indice == indice_bloque_hongo:
+                        hongo_visible = True
+                        hongo.pos = cubo.pos
+                        tiempo_salida_hongo = 0
+                        velocidad_hongo_x = 45
+                        velocidad_hongo_y = 0
+                    else:
+                        monedas_activas[indice] = True
+                        tiempos_salida_monedas[indice] = 0
+                        monedas[indice].pos = cubo.pos
                 break
 
         if velocidad_y < 0:
             for ladrillo in ladrillos:
                 if (
-                    ma.left < ladrillo.right
-                    and ma.right > ladrillo.left
+                    izquierda_mario() < ladrillo.right
+                    and derecha_mario() > ladrillo.left
                     and parte_superior_anterior >= ladrillo.bottom
-                    and ma.top <= ladrillo.bottom
+                    and arriba_mario() <= ladrillo.bottom
                 ):
-                    ma.top = ladrillo.bottom
+                    ma.y = ladrillo.bottom + alto_mario() / 2
                     velocidad_y = 0
                     izquierda = round(ladrillo.centerx - 8 - background.left)
                     arriba = round(ladrillo.centery - 8 - background.top)
@@ -485,15 +668,21 @@ def update(dt):
                     break
 
         if velocidad_y < 0:
-            for y in range(int(parte_superior_anterior), int(ma.top) - 1, -1):
-                if any(pixel_solido(x, y) for x in range(int(ma.left), int(ma.right))):
-                    ma.top = y + 1
+            for y in range(int(parte_superior_anterior), int(arriba_mario()) - 1, -1):
+                if any(
+                    pixel_solido(x, y)
+                    for x in range(int(izquierda_mario()), int(derecha_mario()))
+                ):
+                    ma.y = y + 1 + alto_mario() / 2
                     velocidad_y = 0
                     break
 
-        if ma.top >= HEIGHT:
+        if arriba_mario() >= HEIGHT:
             mode = "end"
             return
 
-    if not ko_derrotado and ma.colliderect(coopa):
+    if any(
+        not koopas_derrotadas[indice] and mario_choca(coopa)
+        for indice, coopa in enumerate(coopas)
+    ):
         mode = "end"
