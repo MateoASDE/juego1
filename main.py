@@ -80,7 +80,7 @@ hongo= Actor("hongo")
 hongo.pos = cubo2.pos
 monedas = [Actor("mon1", cubo.pos) for cubo in cubos]
 monedas_activas = [False] * len(monedas)
-monedas_reclamadas = [False] * len(monedas)
+bloques_usados = [False] * len(cubos)
 tiempos_salida_monedas = [None] * len(monedas)
 duracion_salida_moneda = 0.3
 # Contador para la animación
@@ -294,7 +294,6 @@ def update(dt):
 
         if monedas_activas[indice] and ma.colliderect(moneda_actual):
             monedas_activas[indice] = False
-            monedas_reclamadas[indice] = True
             coins += 1
 
     parte_superior_anterior = ma.top
@@ -335,8 +334,10 @@ def update(dt):
             ):
                 ma.top = cubo.bottom
                 velocidad_y = 0
-                tiempos_golpe[indice] = 0
-                if not monedas_reclamadas[indice]:
+                if not bloques_usados[indice]:
+                    bloques_usados[indice] = True
+                    cubo.image = "cu_usado"
+                    tiempos_golpe[indice] = 0
                     monedas_activas[indice] = True
                     tiempos_salida_monedas[indice] = 0
                     monedas[indice].pos = cubo.pos
