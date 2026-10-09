@@ -53,7 +53,6 @@ coopa = Actor("ko", (400,200))
 ko_derrotado = False
 tiempo_ko_derrotado = 0
 duracion_ko_derrotado = 0.5
-ladrillo = Actor("ladrillo", (100,152))
 cubo1 = Actor("cu1", (264,152))
 cubo2 = Actor("cu2", (345,152))
 cubo3 = Actor("cu3", (376,152))
@@ -73,9 +72,50 @@ cubos.extend(
         (2728, 152),
     )
 )
+posiciones_ladrillos = (
+    (328, 152),
+    (360, 152),
+    (392, 152),
+    (1240, 152),
+    (1272, 152),
+    (1288, 88),
+    (1304, 88),
+    (1320, 88),
+    (1336, 88),
+    (1352, 88),
+    (1368, 88),
+    (1384, 88),
+    (1400, 88),
+    (1464, 88),
+    (1480, 88),
+    (1496, 88),
+    (1608, 152),
+    (1624, 152),
+    (1896, 152),
+    (1944, 88),
+    (1960, 88),
+    (1976, 88),
+    (2056, 88),
+    (2072, 152),
+    (2088, 152),
+    (2104, 88),
+    (2696, 152),
+    (2712, 152),
+    (2744, 152),
+)
+ladrillos = [Actor("ladrillo", posicion) for posicion in posiciones_ladrillos]
+ladrillos_rotos = []
+imagen_ladrillo = pygame.image.load(
+    str(carpeta_proyecto / "images" / "ladrillo.png")
+)
+sprites_fragmentos_ladrillo = [
+    imagen_ladrillo.subsurface((x, y, 7, 7)).copy()
+    for x, y in ((0, 0), (8, 0), (0, 8), (8, 8))
+]
+fragmentos_ladrillo = []
+duracion_fragmentos_ladrillo = 0.8
 posiciones_originales = [cubo.y for cubo in cubos]
 tiempos_golpe = [None] * len(cubos)
-ladrillo= Actor("ladrillo")
 hongo= Actor("hongo")
 hongo.pos = cubo2.pos
 monedas = [Actor("mon1", cubo.pos) for cubo in cubos]
@@ -110,6 +150,13 @@ def pixel_solido(x, y):
         return False
 
     pixel = fondo_colisiones.get_at((x_fondo, y_fondo))
+    if any(
+        izquierda <= x_fondo < izquierda + 16
+        and arriba <= y_fondo < arriba + 16
+        for izquierda, arriba in ladrillos_rotos
+    ):
+        return False
+
     color = (pixel.r, pixel.g, pixel.b)
     if color in ((0, 168, 0), (128, 208, 16)):
         return 145 <= y_fondo < 208 and any(
@@ -142,8 +189,21 @@ def choca_lateral(x_anterior, direccion):
 
 def draw():
     if mode == "game":
-        ladrillo.draw()
         background.draw()
+        for izquierda, arriba in ladrillos_rotos:
+            screen.draw.filled_rect(
+                pygame.Rect(
+                    round(background.left + izquierda),
+                    round(background.top + arriba),
+                    16,
+                    16,
+                ),
+                (92, 148, 252),
+            )
+        for x, y, velocidad_x, velocidad_y, _, sprite in fragmentos_ladrillo:
+            screen.surface.blit(sprite, (round(x), round(y)))
+        for ladrillo in ladrillos:
+            ladrillo.draw()
         hongo.draw()
         ma.draw()
         screen.draw.text("score",pos=(10,0),color="white",fontsize=24)
@@ -180,6 +240,17 @@ def update(dt):
             time -= 1
             tiempo_transcurrido -= 1
 
+    for fragmento in fragmentos_ladrillo:
+        fragmento[4] += dt
+        fragmento[0] += fragmento[2] * dt
+        fragmento[1] += fragmento[3] * dt
+        fragmento[3] += 700 * dt
+    fragmentos_ladrillo[:] = [
+        fragmento
+        for fragmento in fragmentos_ladrillo
+        if fragmento[4] < duracion_fragmentos_ladrillo
+    ]
+
     if ko_derrotado:
         tiempo_ko_derrotado += dt
     elif coopa.x <=0:
@@ -205,6 +276,10 @@ def update(dt):
                 moneda_actual.x -= desplazamiento
             for cubo in cubos:
                 cubo.x -= desplazamiento
+            for ladrillo in ladrillos:
+                ladrillo.x -= desplazamiento
+            for fragmento in fragmentos_ladrillo:
+                fragmento[0] -= desplazamiento
 
         if camera_x >= limite_camara:
             ma.x = min(ma.x, WIDTH - ma.width / 2)
@@ -235,6 +310,10 @@ def update(dt):
                 moneda_actual.x += desplazamiento
             for cubo in cubos:
                 cubo.x += desplazamiento
+            for ladrillo in ladrillos:
+                ladrillo.x += desplazamiento
+            for fragmento in fragmentos_ladrillo:
+                fragmento[0] += desplazamiento
 
         if camera_x <= 0:
             ma.x = max(ma.x, ma.width / 2)
@@ -342,6 +421,33 @@ def update(dt):
                     tiempos_salida_monedas[indice] = 0
                     monedas[indice].pos = cubo.pos
                 break
+
+        if velocidad_y < 0:
+            for ladrillo in ladrillos:
+                if (
+                    ma.left < ladrillo.right
+                    and ma.right > ladrillo.left
+                    and parte_superior_anterior >= ladrillo.bottom
+                    and ma.top <= ladrillo.bottom
+                ):
+                    ma.top = ladrillo.bottom
+                    velocidad_y = 0
+                    izquierda = round(ladrillo.centerx - 8 - background.left)
+                    arriba = round(ladrillo.centery - 8 - background.top)
+                    ladrillos_rotos.append((izquierda, arriba))
+                    for indice, sprite in enumerate(sprites_fragmentos_ladrillo):
+                        fragmentos_ladrillo.append(
+                            [
+                                ladrillo.left + (indice % 2) * 8,
+                                ladrillo.top + (indice // 2) * 8,
+                                (-110 if indice % 2 == 0 else 110),
+                                (-190 if indice // 2 == 0 else -90),
+                                0,
+                                sprite,
+                            ]
+                        )
+                    ladrillos.remove(ladrillo)
+                    break
 
         if velocidad_y < 0:
             for y in range(int(parte_superior_anterior), int(ma.top) - 1, -1):
