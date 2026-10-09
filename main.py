@@ -50,6 +50,7 @@ tubos = buscar_tubos()
 coap= Actor("cop", (400, 200))
 ma = Actor("ma", (50, 195))
 coopa = Actor("ko", (400,200))
+direccion_coopa = -1
 ko_derrotado = False
 tiempo_ko_derrotado = 0
 duracion_ko_derrotado = 0.5
@@ -187,6 +188,32 @@ def choca_lateral(x_anterior, direccion):
     return False
 
 
+def coopa_choca_solido(x_siguiente, direccion):
+    borde_actual = coopa.right if direccion > 0 else coopa.left
+    borde_siguiente = (
+        x_siguiente + coopa.width / 2
+        if direccion > 0
+        else x_siguiente - coopa.width / 2
+    )
+    inicio = min(int(borde_actual), int(borde_siguiente))
+    fin = max(int(borde_actual), int(borde_siguiente))
+
+    for x in range(inicio, fin + 1):
+        for y in range(int(coopa.top) + 1, int(coopa.bottom) - 1):
+            if pixel_solido(x, y):
+                return True
+
+    siguiente_izquierda = x_siguiente - coopa.width / 2
+    siguiente_derecha = x_siguiente + coopa.width / 2
+    return any(
+        siguiente_izquierda < objeto.right
+        and siguiente_derecha > objeto.left
+        and coopa.top < objeto.bottom
+        and coopa.bottom > objeto.top
+        for objeto in (*cubos, *ladrillos)
+    )
+
+
 def draw():
     if mode == "game":
         background.draw()
@@ -231,7 +258,7 @@ def draw():
 def update(dt):
     global contador, mode, camera_x, velocidad_y, en_suelo, salto_presionado, coins
     global time, tiempo_transcurrido
-    global ko_derrotado, tiempo_ko_derrotado
+    global direccion_coopa, ko_derrotado, tiempo_ko_derrotado
     #sounds.mario.play()
 
     if mode == "game" and time > 0:
@@ -253,10 +280,18 @@ def update(dt):
 
     if ko_derrotado:
         tiempo_ko_derrotado += dt
-    elif coopa.x <=0:
-        coopa.x =400
     else:
-        coopa.x -=1
+        x_siguiente = coopa.x + direccion_coopa * 30 * dt
+        borde_mundo_izquierdo = camera_x + x_siguiente - coopa.width / 2
+        borde_mundo_derecho = camera_x + x_siguiente + coopa.width / 2
+        if (
+            borde_mundo_izquierdo < 0
+            or borde_mundo_derecho > background.width
+            or coopa_choca_solido(x_siguiente, direccion_coopa)
+        ):
+            direccion_coopa *= -1
+        else:
+            coopa.x = x_siguiente
 
 
     if keyboard.right:
@@ -456,10 +491,9 @@ def update(dt):
                     velocidad_y = 0
                     break
 
-        if ma.y >= posicion_suelo:
-            ma.y = posicion_suelo
-            velocidad_y = 0
-            en_suelo = True
+        if ma.top >= HEIGHT:
+            mode = "end"
+            return
 
     if not ko_derrotado and ma.colliderect(coopa):
         mode = "end"
