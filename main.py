@@ -68,6 +68,12 @@ moneda= Actor("mon1")
 moneda.pos = cubo1.pos
 moneda1 = Actor("mon1")
 moneda1.pos = cubo3.pos
+monedas = [moneda, moneda1]
+cubos_con_moneda = [cubo1, cubo3]
+monedas_activas = [False] * len(monedas)
+monedas_reclamadas = [False] * len(monedas)
+tiempos_salida_monedas = [None] * len(monedas)
+duracion_salida_moneda = 0.3
 # Contador para la animación
 time = 400
 contador = 0
@@ -129,7 +135,6 @@ def draw():
         ladrillo.draw()
         background.draw()
         hongo.draw()
-        moneda.draw()
         ma.draw()
         screen.draw.text("score",pos=(10,0),color="white",fontsize=24)
         screen.draw.text("coins",pos=(70,0),color="white",fontsize=24)
@@ -143,16 +148,18 @@ def draw():
         screen.draw.text(str(lives),pos=(250,20),color="white",fontsize=20)
         if not ko_derrotado or tiempo_ko_derrotado < duracion_ko_derrotado:
             coopa.draw()
-        moneda1.draw()
         for cubo in cubos:
             cubo.draw()
+        for indice, moneda_actual in enumerate(monedas):
+            if monedas_activas[indice]:
+                moneda_actual.draw()
     elif mode == "end":
         screen.fill("black")
         screen.draw.text("game over",pos=(100,100),color="white",fontsize=24)
 
 
 def update(dt):
-    global contador, mode, camera_x, velocidad_y, en_suelo, salto_presionado
+    global contador, mode, camera_x, velocidad_y, en_suelo, salto_presionado, coins
     global ko_derrotado, tiempo_ko_derrotado
     #sounds.mario.play()
 
@@ -177,8 +184,8 @@ def update(dt):
             background.x -= desplazamiento
             coopa.x -= desplazamiento
             hongo.x -= desplazamiento
-            moneda1.x -= desplazamiento
-            moneda.x -= desplazamiento
+            for moneda_actual in monedas:
+                moneda_actual.x -= desplazamiento
             for cubo in cubos:
                 cubo.x -= desplazamiento
 
@@ -207,8 +214,8 @@ def update(dt):
             background.x += desplazamiento
             coopa.x += desplazamiento
             hongo.x += desplazamiento
-            moneda1.x += desplazamiento
-            moneda.x += desplazamiento
+            for moneda_actual in monedas:
+                moneda_actual.x += desplazamiento
             for cubo in cubos:
                 cubo.x += desplazamiento
 
@@ -250,6 +257,28 @@ def update(dt):
                     pi * tiempos_golpe[indice] / duracion_golpe
                 )
 
+    for indice, moneda_actual in enumerate(monedas):
+        if tiempos_salida_monedas[indice] is not None:
+            tiempos_salida_monedas[indice] += dt
+            progreso = min(
+                tiempos_salida_monedas[indice] / duracion_salida_moneda, 1
+            )
+            cubo = cubos_con_moneda[indice]
+            y_final = (
+                posiciones_originales[cubos.index(cubo)]
+                - cubo.height / 2
+                - moneda_actual.height / 2
+                - 2
+            )
+            moneda_actual.y = cubo.y + (y_final - cubo.y) * sin(pi * progreso / 2)
+            if progreso >= 1:
+                tiempos_salida_monedas[indice] = None
+
+        if monedas_activas[indice] and ma.colliderect(moneda_actual):
+            monedas_activas[indice] = False
+            monedas_reclamadas[indice] = True
+            coins += 1
+
     parte_superior_anterior = ma.top
     parte_inferior_anterior = ma.bottom
     if not en_suelo:
@@ -289,6 +318,12 @@ def update(dt):
                 ma.top = cubo.bottom
                 velocidad_y = 0
                 tiempos_golpe[indice] = 0
+                if cubo in cubos_con_moneda:
+                    indice_moneda = cubos_con_moneda.index(cubo)
+                    if not monedas_reclamadas[indice_moneda]:
+                        monedas_activas[indice_moneda] = True
+                        tiempos_salida_monedas[indice_moneda] = 0
+                        monedas[indice_moneda].pos = cubo.pos
                 break
 
         if velocidad_y < 0:
